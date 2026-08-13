@@ -1,0 +1,162 @@
+==============================
+COINBASE ALWAYS ON BOT SETUP (UPDATED)
+==============================
+
+This file contains the Python dependencies and instructions to fully set up and run your threshold bot, plus strategy modules and safe email handling. It also includes an example .env and a post‑install test checklist.
+
+-----------------------------------
+1) REQUIREMENTS (requirements.txt)
+-----------------------------------
+# Core
+python-dotenv>=1.0.0
+coinbase-advanced-py>=1.1.1
+pytz>=2024.1
+requests>=2.31.0
+
+# Notes:
+# - smtplib and email.message come from Python's standard library.
+# - If your Coinbase client exposes a different candles endpoint signature,
+#   keep versions in this list up to date with your environment.
+
+-----------------------------------
+2) EXAMPLE .ENV (create in project root)
+-----------------------------------
+# Coinbase Advanced API
+COINBASE_API_KEY=YOUR_PUBLIC_KEY_HERE
+COINBASE_API_SECRET_FILE=C:\Users\v454x654\Desktop\coinbase_always_on_bot\cb_secret.pem
+
+# Bot switches
+KILL_SWITCH=0              # 1 to pause trading loop (still runs but does nothing)
+EMAIL_ENABLED=0            # 1 to enable email notifications
+
+# Email (leave EMAIL_ENABLED=0 if not using)
+EMAIL_FROM=me@example.com
+EMAIL_TO=me@example.com
+EMAIL_SMTP_HOST=smtp.gmail.com
+EMAIL_SMTP_PORT=587
+EMAIL_USER=me@example.com
+EMAIL_PASS=app_password_here
+EMAIL_USE_TLS=1
+
+# Optional: Windows paths must use double backslashes in .env if present.
+
+-----------------------------------
+3) INSTALLATION INSTRUCTIONS
+-----------------------------------
+
+A. Open PowerShell
+
+B. Navigate to your project directory:
+   cd "$env:USERPROFILE\Desktop\coinbase_always_on_bot"
+
+C. (Optional) Activate your virtual environment:
+   .\venv\Scripts\Activate.ps1
+   # If you get a permissions error:
+   # Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+
+D. Create or update the requirements file:
+   notepad requirements.txt
+   # Paste the REQUIREMENTS section from this document and save.
+
+E. Install all required packages:
+   pip install -r requirements.txt
+
+F. Verify installation:
+   pip list
+   # You should see at minimum:
+   # coinbase-advanced-py, python-dotenv, pytz, requests
+
+-----------------------------------
+4) RUNNING THE BOT
+-----------------------------------
+
+Start (DRY RUN by default in the script):
+   python -u .\threshold_bot.py
+
+Stop:
+   Press CTRL + C
+
+-----------------------------------
+5) POST-INSTALL TEST CHECKLIST
+-----------------------------------
+
+[ ] 1. Environment loads
+    - On start you should see:
+      "Threshold bot starting..."
+      "DRY_RUN = True KILL_SWITCH = False"
+      "[LOGGING] trades -> logs/fills_<YEAR>.csv"
+
+[ ] 2. Product hydration
+    - Look for lines like:
+      "Hydrating product specs from Coinbase Advanced..."
+      " - BTC-USDC: base_inc=... quote_inc=... base_min=... quote_min=..."
+
+[ ] 3. DOGE pair availability
+    - Ensure your console shows a spec line for DOGE-USDC.
+    - If not present or errors out, edit CONFIG['assets'] to a supported pair
+      (e.g., DOGE-USD) and rerun.
+
+[ ] 4. Candles fetch
+    - The bot should NOT throw "[CANDLES ERROR]" repeatedly.
+    - If you see this, your client version may differ. Adjust get_candles()
+      path/params to match your installed coinbase-advanced-py.
+
+[ ] 5. DRY trade log
+    - Force a small threshold by temporarily setting up/down_pct to 0.0001
+      for one asset, then watch for a simulated BUY/SELL and confirm a row
+      is appended in: logs\fills_<YEAR>.csv
+    - Check the CSV headers include UTC and CT timestamps, mode, order_type,
+      and ids.
+
+[ ] 6. Email skip safety
+    - With EMAIL_ENABLED=0 in .env, you should see no email errors.
+    - With EMAIL_ENABLED=1 but missing creds, you should see
+      "[EMAIL] Skipped. Missing credentials." and the bot should continue.
+
+[ ] 7. Global trade cap (optional)
+    - In CONFIG set: "max_global_trades_per_day": 2
+    - Once cap is reached, you should see: "[GLOBAL LIMIT] Daily cap reached."
+
+-----------------------------------
+6) GOING LIVE (WHEN READY)
+-----------------------------------
+
+- Flip CONFIG['dry_run'] to False in the script.
+- Confirm your reserves are sufficient and min step sizes are respected.
+- Start with a single asset and conservative tranche_pct (e.g., 0.25).
+- Monitor logs/fills_<YEAR>.csv for order placement details.
+- Enable email after verifying Gmail app password or your SMTP provider's
+  settings.
+
+-----------------------------------
+7) QUICK TROUBLESHOOTING
+-----------------------------------
+
+Issue: ModuleNotFoundError: pytz
+Fix:   pip install pytz
+
+Issue: "CANDLES ERROR" spam
+Fix:   Your client version may require a different endpoint or params.
+       Open get_candles() and match to your coinbase-advanced-py docs/version.
+
+Issue: 429 / rate limits
+Fix:   Increase CONFIG['poll_seconds'] to 60–120. Add backoff if needed.
+
+Issue: DOGE-USDC not supported for your region/account
+Fix:   Switch to DOGE-USD or DOGE-USDT in CONFIG['assets'] and rerun.
+
+-----------------------------------
+8) NOTES ON STRATEGIES
+-----------------------------------
+
+Included strategies:
+- Threshold (mean reversion) — your original logic
+- Momentum (EMA/breakout based)
+- ATR Breakout (volatility expansion)
+- Simple Adaptive Selector — picks one based on rolling volatility & trend proxy
+
+All remain DRY-safe and respect your per-asset and optional global trade caps.
+
+-----------------------------------
+END OF FILE
+-----------------------------------

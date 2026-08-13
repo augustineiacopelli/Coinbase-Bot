@@ -1,0 +1,20 @@
+﻿# Python
+venv/
+__pycache__/
+*.pyc
+
+# Secrets - NEVER commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.pem.json
+*secret*
+*password*
+
+# Output data
+logs/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,23 @@
+{
+  "per_asset": {
+    "BTC-USDC": {
+      "anchor": 112279.85,
+      "last_cross": "2025-10-28T21:11:29.596093+00:00",
+      "trades_today": 1,
+      "last_trade_time": "2025-10-28T21:07:46.426886+00:00"
+    },
+    "ETH-USDC": {
+      "anchor": 3937.69,
+      "last_cross": "2025-10-28T21:10:58.165826+00:00",
+      "trades_today": 1,
+      "last_trade_time": "2025-10-28T21:07:46.849398+00:00"
+    },
+    "DOGE-USDC": {
+      "anchor": 0.19079,
+      "last_cross": "2025-10-28T21:27:24.850452+00:00",
+      "trades_today": 1,
+      "last_trade_time": "2025-10-28T21:07:47.236988+00:00"
+    }
+  },
+  "date": "2025-10-28"
+}
