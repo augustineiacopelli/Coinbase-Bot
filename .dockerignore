@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+*.pem
+*.pem.json
+venv/
+__pycache__/
+.git/
+logs/
