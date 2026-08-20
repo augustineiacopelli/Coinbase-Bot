@@ -317,8 +317,23 @@ def get_accounts_balances() -> dict:
 
 def get_price(product_id: str) -> float:
     d = get_product(product_id) or {}
-    p = d.get("price") or d.get("best_bid") or d.get("best_ask")
+    p = d.get("price")
     return float(p) if p is not None else None
+
+def get_best_bid_ask(product_id: str):
+    """Top-of-book bid/ask via the best_bid_ask endpoint. Returns (bid, ask),
+    either of which is None if the book side is empty."""
+    resp = cb_client().get_best_bid_ask(product_ids=[product_id])
+    d = resp.to_dict() if hasattr(resp, "to_dict") else resp
+    pricebooks = d.get("pricebooks") or []
+    if not pricebooks:
+        return None, None
+    book = pricebooks[0]
+    bids = book.get("bids") or []
+    asks = book.get("asks") or []
+    bid = float(bids[0]["price"]) if bids else None
+    ask = float(asks[0]["price"]) if asks else None
+    return bid, ask
 
 # ---------- Candles + indicators ----------
 def get_candles(product_id: str, granularity: str, limit: int):
@@ -654,25 +669,33 @@ def _update_inventory_on_buy(per: dict, base_size: float, price: float):
 # ---------- Execute trade ----------
 def maybe_trade(side: str, product_id: str, price: float, balances: dict, cfg: dict, per: dict):
     base = product_id.split("-")[0]
-    size = tranche_size(product_id, balances, cfg["tranche_pct"], side, price)
-    if size <= 0:
-        print(f"[{product_id}] no size for {side}.")
-        return False
 
     # DRY path
     if CONFIG["dry_run"]:
+        bid, ask = get_best_bid_ask(product_id)
+        fill_price = ask if side == "BUY" else bid
+        if fill_price is None:
+            side_name = "ask" if side == "BUY" else "bid"
+            print(f"[{product_id}] no {side_name} available, skip {side}.")
+            return False
+
+        size = tranche_size(product_id, balances, cfg["tranche_pct"], side, fill_price)
+        if size <= 0:
+            print(f"[{product_id}] no size for {side}.")
+            return False
+
         client_id = f"thr-{product_id}-{int(time.time())}"
-        print(f"[DRY] {product_id} {side} {size:.8f} @ ~{price:.8f} (anchor={per.get('anchor')})")
+        print(f"[DRY] {product_id} {side} {size:.8f} @ ~{fill_price:.8f} (tape={price:.8f}, anchor={per.get('anchor')})")
         order_type = "SIMULATED"
-        fees = _fee_estimate(size * price, order_type)
+        fees = _fee_estimate(size * fill_price, order_type)
 
         if side == "BUY":
-            _update_inventory_on_buy(per, size, price)
-            add_buy_lot(per, size, price, utcnow().isoformat())
+            _update_inventory_on_buy(per, size, fill_price)
+            add_buy_lot(per, size, fill_price, utcnow().isoformat())
             note = "BUY lot added; no tax until sold."
-            notify_trade_generic("DRY", "BUY", product_id, size, price, order_type, client_id, fees, note)
+            notify_trade_generic("DRY", "BUY", product_id, size, fill_price, order_type, client_id, fees, note)
         else:
-            breakdown = fifo_consume_sell(per, size, price)
+            breakdown = fifo_consume_sell(per, size, fill_price)
             gross = breakdown["long"]["proceeds"] + breakdown["short"]["proceeds"]
             lt_tax, st_tax = estimate_tax_from_breakdown(breakdown)
             net_after_tax = (breakdown["long"]["pnl"] + breakdown["short"]["pnl"]) - fees - lt_tax - st_tax
@@ -686,18 +709,22 @@ def maybe_trade(side: str, product_id: str, price: float, balances: dict, cfg: d
                 f"est_tax(LT)={lt_tax:.8f}; est_tax(ST)={st_tax:.8f}; "
                 f"est_net_after_tax={net_after_tax:.8f}"
             )
-            notify_trade_sell_with_tax("DRY", product_id, size, price, order_type, client_id, fees, breakdown, net_after_tax)
+            notify_trade_sell_with_tax("DRY", product_id, size, fill_price, order_type, client_id, fees, breakdown, net_after_tax)
 
         log_trade_csv(
             product_id=product_id, side=side, size_base=size,
-            price_quote_per_base=price, mode="DRY", order_type=order_type,
+            price_quote_per_base=fill_price, mode="DRY", order_type=order_type,
             client_order_id=client_id, order_id="",
             fee_quote=fees, fee_rate=0.0, note=note
         )
-        per["anchor"] = price
+        per["anchor"] = fill_price
         return True
 
     # LIVE path
+    size = tranche_size(product_id, balances, cfg["tranche_pct"], side, price)
+    if size <= 0:
+        print(f"[{product_id}] no size for {side}.")
+        return False
     client_id = f"thr-{product_id}-{int(time.time())}"
     offset = CONFIG["maker_offset"]
     limit_price = price * (1 - offset) if side == "BUY" else price * (1 + offset)
