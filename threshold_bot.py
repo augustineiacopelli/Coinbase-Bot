@@ -246,9 +246,12 @@ CONFIG = {
     "products": {}
 }
 
-# Allow DRY_RUN env to override config
-if os.getenv("DRY_RUN") is not None:
-    CONFIG["dry_run"] = _truthy(os.getenv("DRY_RUN"))
+# DRY_RUN env can confirm paper mode but never disable it. This repo is
+# paper-only (see CLAUDE.md); it must not be possible to flip dry_run to
+# False via the environment.
+if os.getenv("DRY_RUN") is not None and not _truthy(os.getenv("DRY_RUN")):
+    print("[WARN] DRY_RUN=false in env is ignored; this repo is paper-only.")
+CONFIG["dry_run"] = True
 
 # ---------- Utils ----------
 def round_down(value: float, step: float) -> float:
