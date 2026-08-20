@@ -201,7 +201,7 @@ CONFIG = {
     "max_trades_per_day": 3,
     "max_global_trades_per_day": 6,
     "poll_seconds": 30,
-    "dry_run": False,               # set to False for LIVE trading (can override with DRY_RUN env)
+    "dry_run": True,                # paper trading only in this repo; DRY_RUN env can override
     "state_file": "bot_state.json",
 
     # Maker behavior
