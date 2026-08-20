@@ -118,17 +118,6 @@ Stop:
     - Once cap is reached, you should see: "[GLOBAL LIMIT] Daily cap reached."
 
 -----------------------------------
-6) GOING LIVE (WHEN READY)
------------------------------------
-
-- Flip CONFIG['dry_run'] to False in the script.
-- Confirm your reserves are sufficient and min step sizes are respected.
-- Start with a single asset and conservative tranche_pct (e.g., 0.25).
-- Monitor logs/fills_<YEAR>.csv for order placement details.
-- Enable email after verifying Gmail app password or your SMTP provider's
-  settings.
-
------------------------------------
 7) QUICK TROUBLESHOOTING
 -----------------------------------
 

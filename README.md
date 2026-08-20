@@ -1,57 +1,32 @@
-# Coinbase Always‑On Bot (FastAPI + OpenAI Agent)
+# Coinbase Trading Bot — Paper Trading Research Instrument
 
-A minimal, production‑oriented FastAPI service you can deploy to Render, Railway, or Google Cloud Run.
-It exposes:
-- `GET /health` – health check
-- `GET /price/{product_id}` – live price from Coinbase Advanced Trade (e.g., BTC-USD)
-- `POST /watchlist` – body: {"symbols": ["BTC-USD","ETH-USD"]}
-- `POST /chat` – simple OpenAI agent that can call the price tool
+**This repo runs in PAPER TRADING mode only. It does not place real orders and never will as part of this codebase.**
 
-## 1) Local Dev
+The question this project answers is: *does any strategy actually clear its costs* — fees, bid/ask spread, and capital gains tax — not "make me money automatically." A key output is the minimum capital a strategy would need to overcome those costs, if any amount is enough at all.
 
-```bash
+## What's here
+
+- **`threshold_bot.py`** — the main bot. Runs against live Coinbase market data, simulates fills honestly (spread-aware, fees deducted), tracks FIFO lots for long/short capital gains estimates, logs every simulated trade to a per-tax-year CSV, and can email daily results.
+- **`bot_state.json`** — per-asset state (anchors, FIFO lots, strategy assignment, trade counts). Reset before any meaningful paper run; see `reset_state.py`.
+- **`setup_instructions_and_requirements.txt`** — install steps, `.env` template, and a post-install test checklist.
+- **`app/`, `Dockerfile`, `Procfile`** — a separate FastAPI price-service scaffold (health check, price lookup, watchlist, an OpenAI chat endpoint). It is not the trading bot and is likely vestigial; confirm before relying on or removing it.
+
+## Setup
+
+See `setup_instructions_and_requirements.txt` for full install and run instructions. In short:
+
+```powershell
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-cp .env.example .env            # fill in your keys
-uvicorn app.main:app --reload
+copy .env.example .env   # fill in your keys
+python -u .\threshold_bot.py
 ```
 
-Visit: http://127.0.0.1:8000/docs
+## Secrets
 
-## 2) Environment Variables
+Secrets live only in a local `.env` file and a local `.pem` key file. Never commit them, never back them up to cloud storage, never print them to logs or console. `.gitignore` excludes `.env`, `*.pem`, `*.pem.json`, and secret/password patterns — don't weaken it.
 
-Copy `.env.example` to `.env` locally (never commit real secrets):
-- `COINBASE_API_KEY`
-- `COINBASE_API_SECRET`
-- `OPENAI_API_KEY`
+## Scope
 
-On your cloud host, set these in the dashboard (Render/Railway/Cloud Run).
-
-## 3) Deploy Options
-
-### Render.com (easy)
-1. Push to GitHub.
-2. Create new **Web Service** on Render → connect repo.
-3. Runtime: Docker (auto-detected from `Dockerfile`), or use **Python** and the `Procfile`:
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-4. Add environment variables in Render dashboard.
-
-### Railway.app
-1. New project → Deploy from GitHub.
-2. Add environment variables.
-3. It will detect Python; otherwise set start command:
-   ```
-   uvicorn app.main:app --host 0.0.0.0 --port $PORT
-   ```
-
-### Google Cloud Run (serverless)
-```bash
-gcloud builds submit --tag gcr.io/PROJECT_ID/coinbase-bot
-gcloud run deploy coinbase-bot --image gcr.io/PROJECT_ID/coinbase-bot --platform managed --allow-unauthenticated --set-env-vars OPENAI_API_KEY=...,COINBASE_API_KEY=...,COINBASE_API_SECRET=...
-```
-
-## 4) Safety Notes
-- Start with market‑data only. No trading calls are implemented here.
-- If you add trading: implement paper‑mode, position caps, audit log, and a kill switch.
+This bot simulates trades against live market data; it does not place real orders. Fills model the bid/ask spread rather than the mid-price, and fees are deducted at realistic rates, because an optimistic simulation would hide the exact failure mode that sank the original version of this bot: spread eating the profits. Live order placement is out of scope for this repo — see `CLAUDE.md` for the full working constraints.
