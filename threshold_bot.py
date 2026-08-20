@@ -336,12 +336,30 @@ def get_best_bid_ask(product_id: str):
     return bid, ask
 
 # ---------- Candles + indicators ----------
+GRANULARITY_SECONDS = {
+    "ONE_MINUTE": 60,
+    "FIVE_MINUTE": 300,
+    "FIFTEEN_MINUTE": 900,
+    "THIRTY_MINUTE": 1800,
+    "ONE_HOUR": 3600,
+    "TWO_HOUR": 7200,
+    "SIX_HOUR": 21600,
+    "ONE_DAY": 86400,
+}
+
 def get_candles(product_id: str, granularity: str, limit: int):
     try:
-        path = f"/api/v3/brokerage/products/{product_id}/candles"
-        params = {"granularity": granularity, "limit": str(limit)}
-        resp = cb_client().get(path, params=params)
-        data = resp if isinstance(resp, dict) else getattr(resp, "to_dict", lambda: {})()
+        gran_seconds = GRANULARITY_SECONDS.get(granularity, 60)
+        end = utcnow()
+        start = end - timedelta(seconds=gran_seconds * limit)
+        resp = cb_client().get_candles(
+            product_id=product_id,
+            start=str(int(start.timestamp())),
+            end=str(int(end.timestamp())),
+            granularity=granularity,
+            limit=limit,
+        )
+        data = resp.to_dict() if hasattr(resp, "to_dict") else resp
         c = data.get("candles", [])
         c = sorted(c, key=lambda x: x.get("start"))
         ts, o, h, l, cl = [], [], [], [], []
