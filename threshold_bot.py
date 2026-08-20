@@ -635,7 +635,7 @@ def debug_status(product_id, price, per, chosen, stats, signal, asset_cfg):
 
 # ---------- Fees and inventory ----------
 def _fee_estimate(quote_notional: float, order_type: str) -> float:
-    bps = CONFIG["fees"]["maker_bps"] if order_type == "LIMIT" else CONFIG["taker_bps"]
+    bps = CONFIG["fees"]["maker_bps"] if order_type == "LIMIT" else CONFIG["fees"]["taker_bps"]
     return quote_notional * (bps / 10_000.0)
 
 def _update_inventory_on_buy(per: dict, base_size: float, price: float):
@@ -663,7 +663,6 @@ def maybe_trade(side: str, product_id: str, price: float, balances: dict, cfg: d
     if CONFIG["dry_run"]:
         client_id = f"thr-{product_id}-{int(time.time())}"
         print(f"[DRY] {product_id} {side} {size:.8f} @ ~{price:.8f} (anchor={per.get('anchor')})")
-        per["anchor"] = price
         order_type = "SIMULATED"
         fees = _fee_estimate(size * price, order_type)
 
@@ -695,6 +694,7 @@ def maybe_trade(side: str, product_id: str, price: float, balances: dict, cfg: d
             client_order_id=client_id, order_id="",
             fee_quote=fees, fee_rate=0.0, note=note
         )
+        per["anchor"] = price
         return True
 
     # LIVE path
